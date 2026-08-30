@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Rubis Blast</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#6510e0">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;600&family=Fredoka:wght@600;700&family=Bangers&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#0a0d1a;
+    --bg-panel:#141a2e;
+    --bg-cell:#1c2340;
+    --line:#2a3358;
+    --ruby:#ff4361;
+    --sapphire:#3d7eff;
+    --emerald:#1fd98d;
+    --amethyst:#a855f7;
+    --topaz:#ffb238;
+    --aqua:#22d3ee;
+    --text:#eef1fb;
+    --text-dim:#8891b5;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:
+      radial-gradient(ellipse at 20% -10%, #1b2247 0%, transparent 55%),
+      radial-gradient(ellipse at 90% 110%, #1a1440 0%, transparent 50%),
+      var(--bg-deep);
+    color:var(--text);
+    font-family:'Space Grotesk', sans-serif;
+    overflow:hidden;
+    position:fixed;
+    inset:0;
+    overscroll-behavior:none;
+    touch-action:none;
+    user-select:none;
+    -webkit-user-select:none;
+  }
+  #app{
+    position:relative;
+    display:flex; flex-direction:column; align-items:center;
+    height:100dvh; height:100vh;
+    padding:8px 8px 10px;
+    max-width:560px; margin:0 auto;
+    width:100%;
+  }
+  header{
+    width:100%; display:flex; align-items:center; justify-content:center;
+    padding:0 2px 4px; flex:0 0 auto;
+  }
+  .brand{ display:flex; flex-direction:column; line-height:1; }
+  .brand .title{
+    font-weight:700; font-size:18px; letter-spacing:0.3px;
+    background:linear-gradient(90deg,var(--amethyst),var(--sapphire) 45%, var(--emerald));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .brand .sub{
+    font-family:'JetBrains Mono', monospace; font-size:8.5px; letter-spacing:1.8px;
+    color:var(--text-dim); text-transform:uppercase; margin-top:2px;
+  }
+  .scores{ display:flex; gap:8px; }
+  .score-box{
+    background:var(--bg-panel); border:1px solid var(--line);
+    border-radius:9px; padding:4px 10px; text-align:center; min-width:52px;
+  }
+  .score-box .lbl{ font-family:'JetBrains Mono',monospace; font-size:7.5px; color:var(--text-dim); letter-spacing:1.3px;}
+  .score-box .val{ font-family:'JetBrains Mono',monospace; font-weight:600; font-size:14px; margin-top:1px;}
+
+  #combo-banner{
+    position:absolute; top:52px; left:50%; transform:translateX(-50%) translateY(-6px);
+    font-family:'JetBrains Mono',monospace; font-weight:600; font-size:13px;
+    letter-spacing:1.5px; color:var(--topaz); opacity:0; pointer-events:none;
+    text-shadow:0 0 12px rgba(255,178,56,0.7);
+    transition:opacity .18s ease, transform .18s ease;
+    z-index:30;
+  }
+  #combo-banner.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  #board-wrap{
+    flex:1 1 auto; width:100%;
+    display:flex; align-items:center; justify-content:center;
+    min-height:0;
+  }
+  .board-frame{
+    width: min(97vw, calc(100dvh - 300px));
+    width: min(97vw, calc(100vh - 300px));
+    aspect-ratio:1/1;
+    padding:7px;
+    border-radius:16px;
+    background:linear-gradient(160deg,#171d38,#10132399);
+    border:1px solid var(--line);
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.4), 0 10px 30px rgba(0,0,0,0.35);
+    transition: box-shadow .2s ease, border-color .2s ease;
+  }
+  .board-frame.targeting{
+    border-color: var(--aqua);
+    box-shadow: inset 0 0 0 2px var(--aqua), inset 0 0 30px rgba(0,0,0,0.4), 0 0 26px rgba(34,211,238,0.4);
+  }
+  .board-frame.targeting .cell{ cursor:crosshair; }
+  #board{
+    position:relative;
+    width:100%; height:100%;
+    display:grid;
+    grid-template-columns:repeat(6,1fr);
+    grid-template-rows:repeat(6,1fr);
+    gap:4px;
+    border-radius:9px;
+    overflow:hidden;
+  }
+  .cell{
+    position:relative;
+    border-radius:6px;
+    background:var(--bg-cell);
+    contain: layout style paint;
+  }
+  .cell.subgrid{ box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02); }
+  .cell.filled{
+    box-shadow: inset 0 2px 3px rgba(255,255,255,0.35), inset 0 -3px 5px rgba(0,0,0,0.35);
+  }
+  .cell.preview-ok{
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.6) inset;
+    background:rgba(255,255,255,0.14) !important;
+  }
+  .cell.preview-bad{
+    background:rgba(255,67,97,0.22) !important;
+    box-shadow: 0 0 0 2px rgba(255,67,97,0.6) inset;
+  }
+  .cell.clearing{ animation: burst .28s ease forwards; z-index:5; will-change: transform, opacity; }
+  @keyframes burst{
+    0%{ transform:scale(1); opacity:1;}
+    35%{ transform:scale(1.08); opacity:1;}
+    100%{ transform:scale(0.3); opacity:0;}
+  }
+
+  #tray{
+    width:100%;
+    margin-top:8px;
+    display:flex; justify-content:space-between; gap:7px;
+    min-height:82px; flex:0 0 auto;
+  }
+  .tray-slot{
+    flex:1;
+    background:var(--bg-panel);
+    border:1px solid var(--line);
+    border-radius:12px;
+    display:flex; align-items:center; justify-content:center;
+    padding:5px;
+    position:relative;
+    min-height:82px;
+  }
+  .tray-slot.empty{ opacity:0.25; }
+  .tray-slot.adjusted{ animation: adjust-pulse .7s ease; }
+  @keyframes adjust-pulse{
+    0%{ box-shadow:0 0 0 0 rgba(34,211,238,0.6); border-color:var(--aqua); }
+    60%{ box-shadow:0 0 0 10px rgba(34,211,238,0); border-color:var(--aqua); }
+    100%{ box-shadow:0 0 0 0 rgba(34,211,238,0); border-color:var(--line); }
+  }
+  .piece-grid{ display:grid; gap:3px; touch-action:none; }
+  .piece-cell{
+    border-radius:4px;
+    box-shadow: inset 0 2px 2px rgba(255,255,255,0.35), inset 0 -2px 3px rgba(0,0,0,0.3);
+  }
+  .piece-cell.empty{ visibility:hidden; }
+
+  .ghost{
+    position:fixed; top:0; left:0; pointer-events:none; z-index:100;
+    display:grid; gap:3px; opacity:0.92;
+  }
+  .ghost .piece-cell{ border-radius:4px; }
+
+  #bonus-row{
+    width:100%; margin-top:8px; display:flex; gap:7px; flex:0 0 auto;
+  }
+  .bonus-btn{
+    flex:1;
+    background:var(--bg-panel);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:6px 4px 5px;
+    display:flex; flex-direction:column; align-items:center; gap:1px;
+    position:relative;
+    cursor:pointer;
+    transition: box-shadow .15s ease, border-color .15s ease, opacity .15s ease, transform .1s ease;
+  }
+  .bonus-btn:active{ transform:scale(0.95); }
+  .bonus-btn .bonus-icon{ font-size:20px; line-height:1; }
+  .bonus-btn .bonus-name{
+    font-family:'JetBrains Mono',monospace; font-size:8px; letter-spacing:0.6px;
+    color:var(--text-dim); text-transform:uppercase; margin-top:1px;
+  }
+  .bonus-btn .bonus-badge{
+    position:absolute; top:-6px; right:-6px;
+    background:var(--bg-deep); border:1px solid var(--line); border-radius:999px;
+    min-width:18px; height:18px; padding:0 3px;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:600;
+    color:var(--text);
+  }
+  .bonus-btn.active{
+    border-color:var(--aqua);
+    box-shadow:0 0 0 2px rgba(34,211,238,0.3), 0 0 14px rgba(34,211,238,0.35);
+    background:linear-gradient(160deg, rgba(34,211,238,0.14), var(--bg-panel));
+  }
+  .bonus-btn.depleted{ opacity:0.5; }
+  .bonus-btn.depleted .bonus-badge{ color:var(--topaz); border-color:var(--topaz); }
+
+  #hint{
+    margin-top:7px; font-family:'JetBrains Mono',monospace; font-size:9.5px;
+    color:var(--text-dim); letter-spacing:0.4px; text-align:center;
+    flex:0 0 auto; min-height:12px;
+  }
+
+  #overlay, #ad-modal, #shop-modal, #revive-modal{
+    position:fixed; inset:0; background:rgba(6,7,16,0.86);
+    display:none; align-items:center; justify-content:center; flex-direction:column;
+    z-index:200; backdrop-filter: blur(3px);
+  }
+  #overlay.show, #ad-modal.show, #shop-modal.show, #revive-modal.show{ display:flex; }
+  #overlay .panel, .ad-panel, .shop-panel{
+    position:relative;
+    background:var(--bg-panel); border:1px solid var(--line); border-radius:18px;
+    padding:26px 26px; text-align:center; width:min(84vw,330px);
+    box-shadow:0 20px 60px rgba(0,0,0,0.5);
+  }
+  #overlay h2{
+    margin:0 0 4px; font-size:22px;
+    background:linear-gradient(90deg,var(--ruby),var(--topaz));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  #overlay p{ color:var(--text-dim); font-family:'JetBrains Mono',monospace; font-size:12px; margin:4px 0 18px;}
+  #overlay .final-score{ font-family:'JetBrains Mono',monospace; font-size:36px; font-weight:600; margin-bottom:6px;}
+  #overlay .reward-line{
+    display:inline-block; font-family:'JetBrains Mono',monospace; font-weight:600; font-size:14px;
+    color:var(--aqua); background:rgba(34,211,238,0.12); border:1px solid rgba(34,211,238,0.4);
+    border-radius:999px; padding:5px 14px; margin-bottom:18px;
+  }
+  #restart-btn{
+    background:linear-gradient(90deg,var(--amethyst),var(--sapphire));
+    border:none; color:white; font-family:'Space Grotesk',sans-serif; font-weight:700;
+    font-size:15px; padding:12px 26px; border-radius:12px; cursor:pointer;
+    box-shadow:0 8px 20px rgba(168,85,247,0.35);
+  }
+  #restart-btn:active{ transform:scale(0.96); }
+
+  .ad-close{
+    position:absolute; top:8px; right:10px; background:none; border:none;
+    color:var(--text-dim); font-size:16px; cursor:pointer; padding:4px;
+  }
+  .ad-icon{ font-size:36px; margin-bottom:6px; }
+  .ad-title{ font-weight:700; font-size:16px; margin-bottom:4px; }
+  .ad-desc{ color:var(--text-dim); font-family:'JetBrains Mono',monospace; font-size:11px; margin-bottom:16px; line-height:1.5; }
+  .ad-choices{ display:flex; gap:8px; margin-bottom:10px; }
+  .choice-btn{
+    flex:1; border:none; border-radius:12px; cursor:pointer;
+    font-family:'Space Grotesk',sans-serif; padding:12px 6px;
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+  }
+  .choice-btn .cb-icon{ font-size:20px; }
+  .choice-btn .cb-label{ font-weight:700; font-size:12.5px; color:white; }
+  .choice-btn .cb-sub{ font-family:'JetBrains Mono',monospace; font-size:10px; color:rgba(255,255,255,0.85); }
+  .choice-btn.ad{ background:linear-gradient(90deg,var(--topaz),var(--ruby)); }
+  .choice-btn.gem{ background:linear-gradient(90deg,var(--sapphire),var(--amethyst)); }
+  .choice-btn.gem:disabled{ background:var(--bg-cell); opacity:0.5; cursor:default; }
+  .choice-btn:active{ transform:scale(0.96); }
+  .shop-link{
+    background:none; border:none; color:var(--aqua); font-family:'JetBrains Mono',monospace;
+    font-size:10.5px; letter-spacing:0.3px; text-decoration:underline; cursor:pointer; padding:4px;
+  }
+  .ad-countdown{
+    font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--aqua); letter-spacing:0.5px;
+  }
+
+  .gem-pill{
+    display:flex; align-items:center; gap:4px;
+    background:var(--bg-panel); border:1px solid var(--line);
+    border-radius:999px; padding:5px 10px 5px 8px; cursor:pointer;
+  }
+  .gem-pill .gi{ font-size:12px; }
+  .gem-pill .gv{ font-family:'JetBrains Mono',monospace; font-weight:600; font-size:13px; color:var(--aqua); }
+  .gem-pill .gp{
+    font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--bg-deep);
+    background:var(--aqua); border-radius:999px; width:15px; height:15px;
+    display:flex; align-items:center; justify-content:center; margin-left:2px; font-weight:700;
+  }
+
+  .shop-panel{ width:min(88vw,360px); padding:22px 18px; }
+  .shop-title{ font-weight:700; font-size:17px; margin-bottom:2px; }
+  .shop-balance{
+    font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--aqua);
+    margin-bottom:14px;
+  }
+  .pack-list{ display:flex; flex-direction:column; gap:8px; max-height:52vh; overflow-y:auto; }
+  .pack-row{
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--bg-cell); border:1px solid var(--line); border-radius:12px;
+    padding:10px 12px;
+  }
+  .pack-info{ display:flex; flex-direction:column; align-items:flex-start; }
+  .pack-amount{ font-weight:700; font-size:14px; }
+  .pack-amount .gi{ margin-right:3px; }
+  .pack-tag{ font-family:'JetBrains Mono',monospace; font-size:8.5px; color:var(--text-dim); letter-spacing:0.4px; }
+  .buy-btn{
+    background:linear-gradient(90deg,var(--emerald),var(--sapphire));
+    border:none; color:white; font-family:'Space Grotesk',sans-serif; font-weight:700;
+    font-size:13px; padding:9px 14px; border-radius:10px; cursor:pointer; min-width:64px;
+  }
+  .buy-btn:active{ transform:scale(0.95); }
+  .buy-btn.buying{ opacity:0.7; }
+  .buy-btn.bought{ background:linear-gradient(90deg,var(--emerald),var(--emerald)); }
+
+  /* ---- Main menu ---- */
+  #menu-screen{
+    position:fixed; inset:0;
+    display:flex; flex-direction:column;
+    height:100dvh; height:100vh;
+    padding:20px 16px 60px;
+    max-width:560px; margin:0 auto;
+    background:#6510e0;
+  }
+  #menu-screen.hidden{ display:none; }
+  #app.hidden{ display:none; }
+  .menu-header{
+    display:flex; align-items:center; justify-content:space-between;
+    flex:0 0 auto;
+  }
+  .ruby-pill, #menu-screen .gem-pill{
+    display:flex; align-items:center; gap:6px;
+    background:#ffffff;
+    border:3px solid #1a1030;
+    box-shadow:0 6px 0 #1a1030;
+    border-radius:999px; padding:8px 16px 8px 8px;
+  }
+  .ruby-pill .mi{ font-size:22px; line-height:1; }
+  #menu-screen .gem-pill .gi{ font-size:22px; line-height:1; }
+  .ruby-pill span:last-child{
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:22px; color:#1a1030;
+  }
+  #menu-screen .gem-pill{ padding-right:8px; cursor:pointer; }
+  #menu-screen .gem-pill .gv{
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:22px; color:#1a1030;
+  }
+  #menu-screen .gem-pill .gp{
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:20px; color:#1a1030;
+    background:none; width:auto; height:auto; margin-left:6px; border:none;
+  }
+  .menu-center{
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; gap:24px;
+  }
+  .menu-title{
+    font-family:'Bangers', cursive; font-weight:400; line-height:0.95;
+    letter-spacing:1px;
+  }
+  .menu-title .word-top{
+    display:block; font-size:38px;
+    background:linear-gradient(100deg, var(--topaz), var(--ruby));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    -webkit-text-stroke:2px #1a1030;
+    filter:drop-shadow(2px 3px 0 #1a1030);
+  }
+  .menu-title .word-bottom{
+    display:block; font-size:74px; margin-top:2px;
+    background:linear-gradient(100deg, var(--amethyst), var(--sapphire) 60%, var(--aqua));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    -webkit-text-stroke:3px #1a1030;
+    filter:drop-shadow(3px 5px 0 #1a1030);
+  }
+  .menu-footer{ flex:0 0 auto; display:flex; justify-content:center; }
+  .menu-best{
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px;
+    color:#1a1030; background:#ffffff; border:3px solid #1a1030;
+    box-shadow:0 4px 0 #1a1030; border-radius:999px; padding:7px 18px;
+    letter-spacing:0.3px;
+  }
+  .play-btn{
+    font-family:'Bangers', cursive; font-weight:400; font-size:28px;
+    color:#1a1030; border:4px solid #1a1030; cursor:pointer;
+    padding:18px 70px; border-radius:999px;
+    background:#ff6b6b;
+    box-shadow:0 8px 0 #1a1030;
+    letter-spacing:3px;
+  }
+  .play-btn:active{ transform:translateY(4px); box-shadow:0 4px 0 #1a1030; }
+  .menu-link{
+    background:none; border:none; color:var(--text-dim); font-family:'JetBrains Mono',monospace;
+    font-size:10.5px; letter-spacing:0.4px; text-decoration:underline; cursor:pointer; padding:8px;
+  }
+</style>
+</head>
+<body>
+
+<div id="menu-screen">
+  <div class="menu-header">
+    <div class="ruby-pill">
+      <span class="mi">
+        <svg width="24" height="24" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="16,2 28,11 16,30 4,11" fill="#e0294b"/>
+          <polygon points="16,2 28,11 16,13" fill="#ff5c7a"/>
+          <polygon points="16,2 4,11 16,13" fill="#ff8aa3"/>
+          <polygon points="4,11 16,13 16,30" fill="#c81f42"/>
+          <polygon points="28,11 16,13 16,30" fill="#a8163a"/>
+          <polygon points="16,2 28,11 4,11 16,2" fill="none" stroke="#7a0f2b" stroke-width="1"/>
+        </svg>
+      </span>
+      <span id="menu-ruby-val">0</span>
+    </div>
+    <div class="gem-pill" id="menu-gem-pill"><span class="gi">💎</span><span class="gv" id="menu-gem-val">0</span><span class="gp" id="menu-gem-plus">+</span></div>
+  </div>
+  <div class="menu-center">
+    <div class="menu-title">
+      <span class="word-top">Rubis</span>
+      <span class="word-bottom">BLAST</span>
+    </div>
+    <div class="menu-best">🏅 Meilleur score : <span id="menu-best-val">0</span></div>
+  </div>
+  <div class="menu-footer">
+    <button id="play-btn" class="play-btn">JOUER</button>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <header>
+    <div class="scores">
+      <div class="score-box"><div class="lbl">SCORE</div><div class="val" id="score-val">0</div></div>
+      <div class="score-box"><div class="lbl">MEILLEUR</div><div class="val" id="best-val">0</div></div>
+      <div class="gem-pill" id="gem-pill"><span class="gi">💎</span><span class="gv" id="gem-val">0</span><span class="gp">+</span></div>
+    </div>
+  </header>
+
+  <div id="combo-banner"></div>
+
+  <div id="board-wrap">
+    <div class="board-frame" id="board-frame">
+      <div id="board"></div>
+    </div>
+  </div>
+
+  <div id="tray"></div>
+
+  <div id="bonus-row"></div>
+
+  <div id="hint"></div>
+</div>
+
+<div id="overlay">
+  <div class="panel">
+    <h2 id="overlay-title">Grille complète !</h2>
+    <p id="overlay-sub">Impossible de faire mieux, la grille est pleine</p>
+    <div class="final-score" id="final-score">0</div>
+    <div class="reward-line" id="reward-line">+10 💎</div>
+    <button id="restart-btn">Rejouer</button>
+    <div><button class="menu-link" id="back-to-menu-btn">Retour au menu</button></div>
+  </div>
+</div>
+
+<div id="ad-modal">
+  <div class="ad-panel">
+    <button class="ad-close" id="ad-close">✕</button>
+    <div class="ad-icon" id="ad-icon">🥊</div>
+    <div class="ad-title" id="ad-title">Bonus épuisé</div>
+    <div class="ad-desc" id="ad-desc">Choisis comment recharger ce bonus</div>
+
+    <div class="ad-choices" id="ad-choices">
+      <button class="choice-btn ad" id="ad-watch-btn">
+        <span class="cb-icon">🎬</span>
+        <span class="cb-label">Pub</span>
+        <span class="cb-sub">Gratuit</span>
+      </button>
+      <button class="choice-btn gem" id="ad-gem-btn">
+        <span class="cb-icon">💎</span>
+        <span class="cb-label">Gems</span>
+        <span class="cb-sub" id="ad-gem-cost">-10</span>
+      </button>
+    </div>
+    <button class="shop-link" id="ad-shop-link">Pas assez de gems ? Voir la boutique</button>
+
+    <div class="ad-countdown" id="ad-countdown" style="display:none;"></div>
+  </div>
+</div>
+
+<div id="shop-modal">
+  <div class="shop-panel">
+    <button class="ad-close" id="shop-close">✕</button>
+    <div class="ad-icon">💎</div>
+    <div class="shop-title">Boutique de gems</div>
+    <div class="shop-balance">Solde actuel : <span id="shop-balance-val">0</span> 💎</div>
+    <div class="pack-list" id="pack-list"></div>
+  </div>
+</div>
+
+<div id="revive-modal">
+  <div class="ad-panel">
+    <div class="ad-icon">💥</div>
+    <div class="ad-title">Partie perdue !</div>
+    <div class="ad-desc">Regarde une pub pour effacer la grille et continuer avec ton score actuel</div>
+    <button class="choice-btn ad" id="revive-watch-btn" style="width:100%; margin-bottom:10px;">
+      <span class="cb-icon">🎬</span>
+      <span class="cb-label">Regarder la pub et continuer</span>
+    </button>
+    <button class="shop-link" id="revive-skip-link">Non merci, terminer la partie</button>
+    <div class="ad-countdown" id="revive-countdown">Offre valable 5s</div>
+  </div>
+</div>
+
+
+<script>
+(function(){
+  const SIZE = 6;
+  const COLORS = ['ruby','sapphire','emerald','amethyst','topaz','aqua'];
+  const COLOR_HEX = {
+    ruby:'#ff4361', sapphire:'#3d7eff', emerald:'#1fd98d',
+    amethyst:'#a855f7', topaz:'#ffb238', aqua:'#22d3ee'
+  };
+
+  const SHAPES = [
+    [[0,0]],
+    [[0,0],[0,1]],
+    [[0,0],[1,0]],
+    [[0,0],[0,1],[0,2]],
+    [[0,0],[1,0],[2,0]],
+    [[0,0],[1,0],[1,1]],
+    [[0,0],[0,1],[1,0]],
+    [[0,0],[0,1],[1,1]],
+    [[1,0],[1,1],[0,1]],
+    [[0,0],[0,1],[1,0],[1,1]],
+    [[0,0],[0,1],[0,2],[0,3]],
+    [[0,0],[1,0],[2,0],[3,0]],
+    [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2],[2,0],[2,1],[2,2]],
+    [[0,0],[1,0],[2,0],[2,1]],
+    [[0,0],[0,1],[0,2],[1,0]],
+    [[0,0],[0,1],[1,1],[2,1]],
+    [[1,0],[1,1],[1,2],[0,2]],
+    [[0,1],[1,1],[2,1],[2,0]],
+    [[0,0],[1,0],[1,1],[1,2]],
+    [[0,0],[0,1],[1,0],[2,0]],
+    [[0,0],[0,1],[0,2],[1,2]],
+    [[0,0],[0,1],[0,2],[1,1]],
+    [[0,0],[1,0],[2,0],[1,1]],
+    [[1,0],[1,1],[1,2],[0,1]],
+    [[0,1],[1,0],[1,1],[2,1]],
+    [[0,1],[0,2],[1,0],[1,1]],
+    [[0,0],[1,0],[1,1],[2,1]],
+    [[0,0],[0,1],[1,1],[1,2]],
+    [[1,0],[2,0],[0,1],[1,1]],
+    [[0,1],[1,0],[1,1],[1,2],[2,1]]
+  ];
+
+  const bonuses = {
+    glove: { icon:'🥊', name:'Démolir', count:2, desc:"Touche un bloc rempli pour le détruire" },
+    bomb:  { icon:'💣', name:'Bombe',   count:2, desc:"Touche une case pour une explosion 3×3" },
+    broom: { icon:'🧹', name:'Balai',   count:2, desc:"Touche une case pour balayer sa ligne et sa colonne" }
+  };
+  const SCORE_SCALE = 15;
+  const GEM_COST = 10;
+  const GEM_PACKS = [
+    { gems:100,   price:'2 €'  },
+    { gems:500,   price:'5 €'  },
+    { gems:1000,  price:'10 €' },
+    { gems:5000,  price:'20 €' },
+    { gems:10000, price:'30 €' }
+  ];
+  let activeBonus = null;
+  let pendingAdKey = null;
+  let adTimer = null;
+  let gems = 12;
+  let rubies = 0;
+  let reviveUsed = false;
+  let reviveTimer = null;
+
+  let board = Array.from({length:SIZE}, () => Array(SIZE).fill(null));
+  let score = 0;
+  let best = 0;
+  let tray = [null,null,null];
+  let comboStreak = 0;
+  let adjustedSlots = [];
+
+  const boardEl = document.getElementById('board');
+  const boardFrameEl = document.getElementById('board-frame');
+  const trayEl = document.getElementById('tray');
+  const bonusRowEl = document.getElementById('bonus-row');
+  const scoreEl = document.getElementById('score-val');
+  const bestEl = document.getElementById('best-val');
+  const gemValEl = document.getElementById('gem-val');
+  const gemPillEl = document.getElementById('gem-pill');
+  const comboEl = document.getElementById('combo-banner');
+  const overlayEl = document.getElementById('overlay');
+  const finalScoreEl = document.getElementById('final-score');
+  const rewardLineEl = document.getElementById('reward-line');
+  const overlayTitleEl = document.getElementById('overlay-title');
+  const overlaySubEl = document.getElementById('overlay-sub');
+  const hintEl = document.getElementById('hint');
+
+  const adModalEl = document.getElementById('ad-modal');
+  const adIconEl = document.getElementById('ad-icon');
+  const adTitleEl = document.getElementById('ad-title');
+  const adDescEl = document.getElementById('ad-desc');
+  const adChoicesEl = document.getElementById('ad-choices');
+  const adWatchBtn = document.getElementById('ad-watch-btn');
+  const adGemBtn = document.getElementById('ad-gem-btn');
+  const adGemCostEl = document.getElementById('ad-gem-cost');
+  const adShopLink = document.getElementById('ad-shop-link');
+  const adCountdownEl = document.getElementById('ad-countdown');
+  const adCloseBtn = document.getElementById('ad-close');
+
+  const shopModalEl = document.getElementById('shop-modal');
+  const shopCloseBtn = document.getElementById('shop-close');
+  const shopBalanceEl = document.getElementById('shop-balance-val');
+  const packListEl = document.getElementById('pack-list');
+
+  const reviveModalEl = document.getElementById('revive-modal');
+  const reviveWatchBtn = document.getElementById('revive-watch-btn');
+  const reviveSkipLink = document.getElementById('revive-skip-link');
+  const reviveCountdownEl = document.getElementById('revive-countdown');
+
+  const cellEls = [];
+  for(let r=0;r<SIZE;r++){
+    const row = [];
+    for(let c=0;c<SIZE;c++){
+      const cell = document.createElement('div');
+      cell.className = 'cell subgrid';
+      cell.dataset.r = r; cell.dataset.c = c;
+      cell.addEventListener('click', ()=>handleCellClick(r,c));
+      boardEl.appendChild(cell);
+      row.push(cell);
+    }
+    cellEls.push(row);
+  }
+
+  function normalize(shape){
+    const minR = Math.min(...shape.map(p=>p[0]));
+    const minC = Math.min(...shape.map(p=>p[1]));
+    return shape.map(([r,c])=>[r-minR,c-minC]);
+  }
+
+  function shapeDims(shape){
+    const maxR = Math.max(...shape.map(p=>p[0]));
+    const maxC = Math.max(...shape.map(p=>p[1]));
+    return {rows:maxR+1, cols:maxC+1};
+  }
+
+  function canPlace(shape, r0, c0){
+    for(const [dr,dc] of shape){
+      const r=r0+dr, c=c0+dc;
+      if(r<0||r>=SIZE||c<0||c>=SIZE) return false;
+      if(board[r][c]) return false;
+    }
+    return true;
+  }
+
+  function pieceFitsSomewhere(shape){
+    for(let r=0;r<SIZE;r++){
+      for(let c=0;c<SIZE;c++){
+        if(canPlace(shape,r,c)) return true;
+      }
+    }
+    return false;
+  }
+
+  function isBoardFull(){
+    for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++) if(!board[r][c]) return false;
+    return true;
+  }
+
+  function randomPiece(){
+    const shape = normalize(SHAPES[Math.floor(Math.random()*SHAPES.length)]);
+    const color = COLORS[Math.floor(Math.random()*COLORS.length)];
+    return { shape, color, id: Math.random().toString(36).slice(2) };
+  }
+
+  function refillTrayIfEmpty(){
+    if(tray.every(p=>p===null)){
+      tray = [randomPiece(), randomPiece(), randomPiece()];
+    }
+  }
+
+  function checkGameOver(){
+    const active = tray.filter(p=>p);
+    if(active.length === 0) return false;
+    return !active.some(p => pieceFitsSomewhere(p.shape));
+  }
+
+  function renderBoard(){
+    for(let r=0;r<SIZE;r++){
+      for(let c=0;c<SIZE;c++){
+        const el = cellEls[r][c];
+        const val = board[r][c];
+        el.classList.remove('preview-ok','preview-bad');
+        if(val){
+          el.classList.add('filled');
+          el.style.background = COLOR_HEX[val];
+        } else {
+          el.classList.remove('filled');
+          el.style.background = '';
+        }
+      }
+    }
+  }
+
+  function renderTray(){
+    trayEl.innerHTML = '';
+    tray.forEach((piece, idx) => {
+      const slot = document.createElement('div');
+      slot.className = 'tray-slot' + (piece ? '' : ' empty') + (adjustedSlots.includes(idx) ? ' adjusted' : '');
+      if(piece){
+        const {rows, cols} = shapeDims(piece.shape);
+        const cellPx = Math.max(13, Math.min(20, Math.floor(72/Math.max(rows,cols))));
+        const grid = buildPieceGrid(piece, cellPx);
+        grid.dataset.idx = idx;
+        attachDrag(grid, piece, idx, cellPx);
+        slot.appendChild(grid);
+      }
+      trayEl.appendChild(slot);
+    });
+    adjustedSlots = [];
+  }
+
+  function buildPieceGrid(piece, cellPx){
+    const {rows, cols} = shapeDims(piece.shape);
+    const grid = document.createElement('div');
+    grid.className = 'piece-grid';
+    grid.style.gridTemplateColumns = `repeat(${cols}, ${cellPx}px)`;
+    grid.style.gridTemplateRows = `repeat(${rows}, ${cellPx}px)`;
+    const occ = new Set(piece.shape.map(([r,c])=>r+','+c));
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<cols;c++){
+        const cell = document.createElement('div');
+        if(occ.has(r+','+c)){
+          cell.className = 'piece-cell';
+          cell.style.background = COLOR_HEX[piece.color];
+          cell.style.width = cellPx+'px';
+          cell.style.height = cellPx+'px';
+        } else {
+          cell.className = 'piece-cell empty';
+        }
+        grid.appendChild(cell);
+      }
+    }
+    return grid;
+  }
+
+  function updateScores(){
+    scoreEl.textContent = score;
+    bestEl.textContent = best;
+    gemValEl.textContent = gems;
+    shopBalanceEl.textContent = gems;
+    const menuGemVal = document.getElementById('menu-gem-val');
+    const menuRubyVal = document.getElementById('menu-ruby-val');
+    const menuBestVal = document.getElementById('menu-best-val');
+    if(menuGemVal) menuGemVal.textContent = gems;
+    if(menuRubyVal) menuRubyVal.textContent = rubies;
+    if(menuBestVal) menuBestVal.textContent = best;
+  }
+
+  function showCombo(text){
+    comboEl.textContent = text;
+    comboEl.classList.add('show');
+    clearTimeout(showCombo._t);
+    showCombo._t = setTimeout(()=>comboEl.classList.remove('show'), 900);
+  }
+
+  function updateHint(){
+    if(activeBonus){
+      hintEl.textContent = bonuses[activeBonus].desc + ' — retouche le bonus pour annuler';
+    } else {
+      hintEl.textContent = "Glisse une pièce sur la grille pour la poser";
+    }
+  }
+
+  function commitPlacement(piece, r0, c0){
+    piece.shape.forEach(([dr,dc])=>{
+      board[r0+dr][c0+dc] = piece.color;
+    });
+    score += piece.shape.length * SCORE_SCALE;
+
+    const idx = tray.findIndex(p => p && p.id === piece.id);
+    tray[idx] = null;
+
+    renderBoard();
+
+    const fullRows = [];
+    const fullCols = [];
+    for(let r=0;r<SIZE;r++){
+      if(board[r].every(v=>v)) fullRows.push(r);
+    }
+    for(let c=0;c<SIZE;c++){
+      let full = true;
+      for(let r=0;r<SIZE;r++){ if(!board[r][c]){ full=false; break; } }
+      if(full) fullCols.push(c);
+    }
+    const linesCleared = fullRows.length + fullCols.length;
+
+    if(linesCleared > 0){
+      comboStreak++;
+      fullRows.forEach(r=>{ for(let c=0;c<SIZE;c++){ cellEls[r][c].style.background='#ffffff'; cellEls[r][c].classList.add('clearing'); } });
+      fullCols.forEach(c=>{ for(let r=0;r<SIZE;r++){ cellEls[r][c].style.background='#ffffff'; cellEls[r][c].classList.add('clearing'); } });
+      const base = linesCleared * 10 * SCORE_SCALE;
+      const comboBonus = linesCleared > 1 ? (linesCleared-1) * 15 * SCORE_SCALE : 0;
+      const streakBonus = comboStreak > 1 ? (comboStreak-1) * 5 * SCORE_SCALE : 0;
+      score += base + comboBonus + streakBonus;
+
+      if(linesCleared >= 3) showCombo('COMBO x' + linesCleared + '!');
+      else if(comboStreak > 1) showCombo('CHAINE x' + comboStreak);
+
+      setTimeout(()=>{
+        fullRows.forEach(r=>{ for(let c=0;c<SIZE;c++) board[r][c] = null; });
+        fullCols.forEach(c=>{ for(let r=0;r<SIZE;r++) board[r][c] = null; });
+        for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++) cellEls[r][c].classList.remove('clearing');
+        renderBoard();
+        finishTurn();
+      }, 340);
+    } else {
+      comboStreak = 0;
+      finishTurn();
+    }
+
+    if(score > best){ best = score; }
+    updateScores();
+  }
+
+  function rubyReward(s){
+    if(s < 10000) return 10;
+    if(s < 20000) return 20;
+    if(s < 50000) return 30; // interpolated tier between the 20k and 50k thresholds given
+    return 50;
+  }
+
+  function showEndOverlay(title, subtitle){
+    const reward = rubyReward(score);
+    rubies += reward;
+    updateScores();
+    overlayTitleEl.textContent = title;
+    overlaySubEl.textContent = subtitle;
+    finalScoreEl.textContent = score;
+    rewardLineEl.textContent = '+' + reward + ' ♦️ rubis';
+    overlayEl.classList.add('show');
+  }
+
+  function finishTurn(){
+    refillTrayIfEmpty();
+    renderTray();
+
+    if(isBoardFull()){
+      showEndOverlay('Grille complète !', 'Impossible de faire mieux, la grille est pleine');
+    } else if(checkGameOver()){
+      showReviveOffer();
+    }
+  }
+
+  function showReviveOffer(){
+    if(reviveUsed){
+      showEndOverlay('Partie perdue', 'Plus aucune pièce ne peut être placée');
+      return;
+    }
+    reviveWatchBtn.style.display = 'flex';
+    reviveWatchBtn.disabled = false;
+    reviveSkipLink.style.display = 'block';
+    let n = 5;
+    reviveCountdownEl.textContent = 'Offre valable ' + n + 's';
+    reviveModalEl.classList.add('show');
+    clearInterval(reviveTimer);
+    reviveTimer = setInterval(()=>{
+      n -= 1;
+      if(n <= 0){
+        clearInterval(reviveTimer);
+        declineRevive();
+      } else {
+        reviveCountdownEl.textContent = 'Offre valable ' + n + 's';
+      }
+    }, 1000);
+  }
+
+  function declineRevive(){
+    clearInterval(reviveTimer);
+    reviveModalEl.classList.remove('show');
+    showEndOverlay('Partie perdue', 'Plus aucune pièce ne peut être placée');
+  }
+
+  function acceptRevive(){
+    clearInterval(reviveTimer);
+    reviveWatchBtn.style.display = 'none';
+    reviveSkipLink.style.display = 'none';
+    let n = 3;
+    reviveCountdownEl.textContent = 'Publicité en cours… ' + n;
+    reviveTimer = setInterval(()=>{
+      n -= 1;
+      if(n <= 0){
+        clearInterval(reviveTimer);
+        reviveUsed = true;
+        board = Array.from({length:SIZE}, () => Array(SIZE).fill(null));
+        renderBoard();
+        tray = [randomPiece(), randomPiece(), randomPiece()];
+        renderTray();
+        reviveModalEl.classList.remove('show');
+      } else {
+        reviveCountdownEl.textContent = 'Publicité en cours… ' + n;
+      }
+    }, 700);
+  }
+
+  reviveWatchBtn.addEventListener('click', acceptRevive);
+  reviveSkipLink.addEventListener('click', declineRevive);
+
+  // ---- Bonuses ----
+  function renderBonuses(){
+    bonusRowEl.innerHTML = '';
+    Object.entries(bonuses).forEach(([key,b])=>{
+      const btn = document.createElement('button');
+      btn.className = 'bonus-btn' + (activeBonus===key?' active':'') + (b.count<=0?' depleted':'');
+      const iconSpan = document.createElement('span');
+      iconSpan.className = 'bonus-icon'; iconSpan.textContent = b.icon;
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'bonus-name'; nameSpan.textContent = b.name;
+      const badge = document.createElement('span');
+      badge.className = 'bonus-badge'; badge.textContent = b.count>0 ? b.count : '▶';
+      btn.appendChild(iconSpan); btn.appendChild(nameSpan); btn.appendChild(badge);
+      btn.addEventListener('click', ()=>handleBonusClick(key));
+      bonusRowEl.appendChild(btn);
+    });
+  }
+
+  function handleBonusClick(key){
+    if(activeBonus === key){
+      activeBonus = null;
+      boardFrameEl.classList.remove('targeting');
+      updateHint(); renderBonuses();
+      return;
+    }
+    if(bonuses[key].count > 0){
+      activeBonus = key;
+      boardFrameEl.classList.add('targeting');
+      updateHint(); renderBonuses();
+    } else {
+      openAd(key);
+    }
+  }
+
+  function burstAndClear(cells){
+    cells.forEach(([r,c])=>{ cellEls[r][c].style.background='#ffffff'; cellEls[r][c].classList.add('clearing'); });
+    setTimeout(()=>{
+      cells.forEach(([r,c])=>{ board[r][c] = null; });
+      for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++) cellEls[r][c].classList.remove('clearing');
+      renderBoard();
+    }, 300);
+  }
+
+  function handleCellClick(r,c){
+    if(!activeBonus) return;
+    const key = activeBonus;
+    let cells = [];
+    if(key === 'glove'){
+      if(!board[r][c]) return;
+      cells = [[r,c]];
+    } else if(key === 'bomb'){
+      for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++){
+        const rr=r+dr, cc=c+dc;
+        if(rr>=0&&rr<SIZE&&cc>=0&&cc<SIZE) cells.push([rr,cc]);
+      }
+    } else if(key === 'broom'){
+      for(let cc=0;cc<SIZE;cc++) cells.push([r,cc]);
+      for(let rr=0;rr<SIZE;rr++) if(rr!==r) cells.push([rr,c]);
+    }
+    burstAndClear(cells);
+    bonuses[key].count -= 1;
+    activeBonus = null;
+    boardFrameEl.classList.remove('targeting');
+    updateHint();
+    renderBonuses();
+  }
+
+  function openAd(key){
+    pendingAdKey = key;
+    adIconEl.textContent = bonuses[key].icon;
+    adTitleEl.textContent = bonuses[key].name + ' épuisé';
+    adDescEl.textContent = "Choisis comment recharger ce bonus";
+    adChoicesEl.style.display = 'flex';
+    adShopLink.style.display = 'block';
+    adGemCostEl.textContent = '-' + GEM_COST;
+    adGemBtn.disabled = gems < GEM_COST;
+    adCountdownEl.style.display = 'none';
+    adModalEl.classList.add('show');
+  }
+
+  function closeAd(){
+    adModalEl.classList.remove('show');
+    clearInterval(adTimer);
+    pendingAdKey = null;
+  }
+
+  function watchAd(){
+    if(!pendingAdKey) return;
+    adChoicesEl.style.display = 'none';
+    adShopLink.style.display = 'none';
+    adCountdownEl.style.display = 'block';
+    let n = 3;
+    adCountdownEl.textContent = 'Publicité en cours… ' + n;
+    adTimer = setInterval(()=>{
+      n -= 1;
+      if(n <= 0){
+        clearInterval(adTimer);
+        bonuses[pendingAdKey].count += 1;
+        adCountdownEl.textContent = 'Bonus rechargé !';
+        renderBonuses();
+        setTimeout(closeAd, 700);
+      } else {
+        adCountdownEl.textContent = 'Publicité en cours… ' + n;
+      }
+    }, 700);
+  }
+
+  function useGemsForBonus(){
+    if(!pendingAdKey || gems < GEM_COST) return;
+    gems -= GEM_COST;
+    bonuses[pendingAdKey].count += 1;
+    updateScores();
+    renderBonuses();
+    adChoicesEl.style.display = 'none';
+    adShopLink.style.display = 'none';
+    adCountdownEl.style.display = 'block';
+    adCountdownEl.textContent = 'Bonus rechargé !';
+    setTimeout(closeAd, 600);
+  }
+
+  function openShop(){
+    renderPacks();
+    updateScores();
+    shopModalEl.classList.add('show');
+  }
+  function closeShop(){ shopModalEl.classList.remove('show'); }
+
+  function renderPacks(){
+    packListEl.innerHTML = '';
+    GEM_PACKS.forEach((pack, i) => {
+      const row = document.createElement('div');
+      row.className = 'pack-row';
+      const info = document.createElement('div');
+      info.className = 'pack-info';
+      info.innerHTML = `<span class="pack-amount"><span class="gi">💎</span>${pack.gems.toLocaleString('fr-FR')}</span><span class="pack-tag">PACK ${i+1}</span>`;
+      const btn = document.createElement('button');
+      btn.className = 'buy-btn';
+      btn.textContent = pack.price;
+      btn.addEventListener('click', ()=>buyPack(pack, btn));
+      row.appendChild(info);
+      row.appendChild(btn);
+      packListEl.appendChild(row);
+    });
+  }
+
+  function buyPack(pack, btn){
+    if(btn.classList.contains('buying')) return;
+    btn.classList.add('buying');
+    btn.textContent = '…';
+    setTimeout(()=>{
+      gems += pack.gems;
+      updateScores();
+      btn.classList.remove('buying');
+      btn.classList.add('bought');
+      btn.textContent = '✓ Ajouté';
+      if(adModalEl.classList.contains('show')){
+        adGemBtn.disabled = gems < GEM_COST;
+      }
+      setTimeout(()=>{
+        btn.classList.remove('bought');
+        btn.textContent = pack.price;
+      }, 1100);
+    }, 800);
+  }
+
+  adWatchBtn.addEventListener('click', watchAd);
+  adCloseBtn.addEventListener('click', closeAd);
+  adGemBtn.addEventListener('click', useGemsForBonus);
+  adShopLink.addEventListener('click', ()=>{ closeAd(); openShop(); });
+  gemPillEl.addEventListener('click', openShop);
+  shopCloseBtn.addEventListener('click', closeShop);
+
+  // ---- Drag handling for tray pieces ----
+  function attachDrag(gridEl, piece, idx, cellPx){
+    let ghost = null;
+    let dragging = false;
+    let boardRect = null;
+    let anchorOffsetX = 0, anchorOffsetY = 0;
+    let lastPreviewCells = [];
+    let lastOrigin = null;
+    let rafId = null;
+    let pendingPointer = null;
+
+    function boardCellSize(){
+      boardRect = boardEl.getBoundingClientRect();
+      return boardRect.width / SIZE;
+    }
+
+    function pointerToOrigin(clientX, clientY, cellSize){
+      const localX = clientX - anchorOffsetX - boardRect.left;
+      const localY = clientY - anchorOffsetY - boardRect.top;
+      const c0 = Math.round(localX / cellSize);
+      const r0 = Math.round(localY / cellSize);
+      return {r0, c0};
+    }
+
+    function clearPreview(){
+      lastPreviewCells.forEach(([r,c])=>{
+        cellEls[r][c].classList.remove('preview-ok','preview-bad');
+      });
+      lastPreviewCells = [];
+    }
+
+    function showPreview(r0, c0){
+      clearPreview();
+      const valid = canPlace(piece.shape, r0, c0);
+      piece.shape.forEach(([dr,dc])=>{
+        const r=r0+dr, c=c0+dc;
+        if(r>=0&&r<SIZE&&c>=0&&c<SIZE){
+          cellEls[r][c].classList.add(valid ? 'preview-ok' : 'preview-bad');
+          lastPreviewCells.push([r,c]);
+        }
+      });
+      return valid;
+    }
+
+    gridEl.addEventListener('pointerdown', (e)=>{
+      if(activeBonus) return;
+      e.preventDefault();
+      dragging = true;
+      lastOrigin = null;
+      gridEl.setPointerCapture(e.pointerId);
+      const cellSize = boardCellSize();
+      const {rows, cols} = shapeDims(piece.shape);
+
+      ghost = document.createElement('div');
+      ghost.className = 'ghost';
+      ghost.style.willChange = 'transform';
+      ghost.style.gridTemplateColumns = `repeat(${cols}, ${cellSize}px)`;
+      ghost.style.gridTemplateRows = `repeat(${rows}, ${cellSize}px)`;
+      const occ = new Set(piece.shape.map(([r,c])=>r+','+c));
+      for(let r=0;r<rows;r++){
+        for(let c=0;c<cols;c++){
+          const cell = document.createElement('div');
+          if(occ.has(r+','+c)){
+            cell.className='piece-cell';
+            cell.style.background = COLOR_HEX[piece.color];
+            cell.style.width = cellSize+'px';
+            cell.style.height = cellSize+'px';
+          } else {
+            cell.className='piece-cell empty';
+          }
+          ghost.appendChild(cell);
+        }
+      }
+      document.body.appendChild(ghost);
+
+      anchorOffsetX = (cellSize/2);
+      anchorOffsetY = (cellSize/2) + cellSize*1.6;
+
+      gridEl.style.visibility = 'hidden';
+      updateGhost(e.clientX, e.clientY, cellSize);
+    });
+
+    function updateGhost(clientX, clientY, cellSize){
+      ghost.style.transform = `translate3d(${clientX - anchorOffsetX}px, ${clientY - anchorOffsetY}px, 0)`;
+      const {r0, c0} = pointerToOrigin(clientX, clientY, cellSize);
+      if(!lastOrigin || lastOrigin.r0 !== r0 || lastOrigin.c0 !== c0){
+        lastOrigin = {r0, c0};
+        showPreview(r0, c0);
+      }
+    }
+
+    function flushPointer(){
+      rafId = null;
+      if(!dragging || !pendingPointer) return;
+      const cellSize = boardRect.width / SIZE;
+      updateGhost(pendingPointer.x, pendingPointer.y, cellSize);
+    }
+
+    gridEl.addEventListener('pointermove', (e)=>{
+      if(!dragging) return;
+      pendingPointer = { x: e.clientX, y: e.clientY };
+      if(rafId === null) rafId = requestAnimationFrame(flushPointer);
+    });
+
+    function endDrag(e){
+      if(!dragging) return;
+
+      dragging = false;
+      if(rafId !== null){ cancelAnimationFrame(rafId); rafId = null; }
+      const cellSize = boardRect.width / SIZE;
+      const {r0, c0} = pointerToOrigin(e.clientX, e.clientY, cellSize);
+      const valid = canPlace(piece.shape, r0, c0);
+      clearPreview();
+      if(ghost){ ghost.remove(); ghost=null; }
+      gridEl.style.visibility = 'visible';
+      if(valid){ commitPlacement(piece, r0, c0); }
+    }
+
+    gridEl.addEventListener('pointerup', endDrag);
+    gridEl.addEventListener('pointercancel', endDrag);
+  }
+
+  function newGame(){
+    board = Array.from({length:SIZE}, () => Array(SIZE).fill(null));
+    score = 0;
+    comboStreak = 0;
+    activeBonus = null;
+    reviveUsed = false;
+    clearInterval(reviveTimer);
+    reviveModalEl.classList.remove('show');
+    boardFrameEl.classList.remove('targeting');
+    Object.values(bonuses).forEach(b => b.count = 2);
+    tray = [randomPiece(), randomPiece(), randomPiece()];
+    overlayEl.classList.remove('show');
+    renderBoard();
+    renderTray();
+    renderBonuses();
+    updateHint();
+    updateScores();
+  }
+
+  const menuScreenEl = document.getElementById('menu-screen');
+  const appEl = document.getElementById('app');
+
+  function goToMenu(){
+    overlayEl.classList.remove('show');
+    appEl.classList.add('hidden');
+    menuScreenEl.classList.remove('hidden');
+    updateScores();
+  }
+
+  function startGame(){
+    menuScreenEl.classList.add('hidden');
+    appEl.classList.remove('hidden');
+    newGame();
+  }
+
+  document.getElementById('play-btn').addEventListener('click', startGame);
+  document.getElementById('menu-gem-pill').addEventListener('click', openShop);
+  document.getElementById('back-to-menu-btn').addEventListener('click', goToMenu);
+
+  document.getElementById('restart-btn').addEventListener('click', newGame);
+
+  updateScores();
+})();
+</script>
+</body>
+</html>
